@@ -15,5 +15,12 @@ router.post("/sync-zort", async (req, res) => {
     });
   }
 });
-
 export default router;
+
+
+runSyncZort()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("❌ Sync failed:", err);
+    process.exit(1);
+  });
