@@ -5,8 +5,15 @@ import runSync from "../../scripts/syncZort.js";
 const router = express.Router();
 
 router.post("/sync-zort", async (req, res) => {
-  await runSync();
-  res.json({ ok: true });
+  try {
+    await runSync();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({
+      ok: false,
+      error: e.message,
+    });
+  }
 });
 
 export default router;
