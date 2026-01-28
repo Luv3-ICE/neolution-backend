@@ -310,5 +310,4 @@ export default async function runSync() {
   }
 
   console.log("✅ Sync completed");
-  process.exit(0);
 }
