@@ -1,6 +1,6 @@
 // routes/admin/sync.js
 import express from "express";
-import runSync from "../scripts/syncZort.js";
+import runSync from "../../scripts/syncZort.js";
 
 const router = express.Router();
 
