@@ -10,12 +10,7 @@ import { pool } from "./db/index.js";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN || "*",
-    credentials: true,
-  }),
-);
+app.use(cors({ origin: process.env.CORS_ORIGIN || "*" }));
 app.use(express.json());
 
 app.get("/", (_, res) => res.send("API running"));
@@ -27,7 +22,7 @@ app.use("/user/addresses", userAddressRouter);
 
 app.get("/health", async (req, res) => {
   try {
-    const r = await pool.query("SELECT 1");
+    await pool.query("SELECT 1");
     res.json({ ok: true, db: "connected" });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
