@@ -26,7 +26,7 @@ function buildCategorySlug({ name, id }) {
 // --------------------
 // main
 // --------------------
-async function run() {
+export default async function runSync() {
   console.log("🔄 Syncing from Zort...");
 
   const zortProducts = await fetchZortProducts(200);
@@ -312,8 +312,3 @@ async function run() {
   console.log("✅ Sync completed");
   process.exit(0);
 }
-
-run().catch((err) => {
-  console.error("❌ Sync failed:", err);
-  process.exit(1);
-});
