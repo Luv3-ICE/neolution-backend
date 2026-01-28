@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "sync:zort": "node src/scripts/syncZort.js"
+    "sync:zort": "node src/routes/admin/sync.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
