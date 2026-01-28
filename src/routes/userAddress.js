@@ -7,7 +7,7 @@ const router = express.Router();
 /**
  * GET /user/addresses
  */
-router.post("/", authMiddleware, async (req, res) => {
+router.get("/", requireAuth, async (req, res) => {
   const { rows } = await pool.query(
     `
     SELECT *
@@ -24,7 +24,7 @@ router.post("/", authMiddleware, async (req, res) => {
 /**
  * POST /user/addresses
  */
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
   const {
     label,
     name,
