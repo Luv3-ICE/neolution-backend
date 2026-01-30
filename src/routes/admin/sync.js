@@ -5,8 +5,12 @@ const router = express.Router();
 
 router.post("/sync-zort", async (req, res) => {
   try {
-    await runZortSync();
-    res.json({ success: true });
+    runZortSync().catch(console.error);
+
+    res.json({
+      success: true,
+      message: "Zort sync started",
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
