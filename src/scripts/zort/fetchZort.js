@@ -13,8 +13,10 @@ export async function fetchZortSnapshot(limit = 200) {
 
   const filename = `zort-raw-${Date.now()}.json`;
   const filepath = path.join(dir, filename);
-
-  fs.writeFileSync(filepath, JSON.stringify(products, null, 2));
+  
+  if (process.env.NODE_ENV !== "production") {
+    fs.writeFileSync(filepath, JSON.stringify(products, null, 2));
+  }
 
   console.log(`✅ Zort snapshot saved: ${filename}`);
 
