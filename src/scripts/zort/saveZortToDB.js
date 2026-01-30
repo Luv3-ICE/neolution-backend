@@ -1,4 +1,4 @@
-// src/scripts/saveZortDB.js
+// src/scripts/zort/saveZortToDB.js
 import { pool } from "../../db/index.js";
 
 // --------------------
@@ -7,7 +7,8 @@ import { pool } from "../../db/index.js";
 function extractBaseName(name) {
   if (typeof name !== "string") return null;
 
-  return name.replace(/\s*\(.*?\)\s*/g, "").trim();
+  const cleaned = name.replace(/\s*\(.*?\)\s*/g, "").trim();
+  return cleaned !== "" ? cleaned : null;
 }
 
 function slugify(text) {
@@ -25,7 +26,7 @@ function buildCategorySlug({ name, id }) {
   const safeName =
     typeof name === "string" && name.trim() !== "" ? slugify(name) : "category";
 
-  return `${safeName}-${id ?? "unknown"}`;
+  return `${safeName}-${id}`;
 }
 
 // --------------------
@@ -35,20 +36,26 @@ export default async function saveZortDB(zortProducts = []) {
   console.log("🟢 Saving Zort data to Database");
 
   const productMap = new Map();
+  let skippedProducts = 0;
 
   // --------------------
-  // group by base product
+  // group by base product (เหมือน syncZort เก่า)
   // --------------------
   for (const item of zortProducts) {
-    const baseName = extractBaseName(item.name);
-    const slug = slugify(baseName);
-    const { categoryid, category, subCategoryId, subCategory } = item;
+    const rawName =
+      item.name || item.product_name || item.ProductName || item.Product?.name;
 
-    const categorySlug = buildCategorySlug({
-      name: subCategory || category,
-      zortCategoryId: categoryid,
-      zortSubCategoryId: subCategoryId,
-    });
+    const baseName = extractBaseName(rawName);
+    if (!baseName) {
+      skippedProducts++;
+      continue; // ❗ สำคัญมาก
+    }
+
+    const slug = slugify(baseName);
+    if (!slug) {
+      skippedProducts++;
+      continue;
+    }
 
     if (!productMap.has(slug)) {
       productMap.set(slug, {
@@ -66,30 +73,28 @@ export default async function saveZortDB(zortProducts = []) {
       });
     }
 
-    const variantName = item.variant?.[0]?.name || null;
+    const variantName = item.variant?.[0]?.name || item.variant_name || null;
 
     productMap.get(slug).variants.push({
       zort_product_id: item.id,
-      sku: item.sku,
+      sku: item.sku || null,
       name: variantName,
-      price: Number(item.sellprice),
-      stock: Number(item.stock),
-      attributes: {
-        color: variantName,
-      },
-      images: item.imageList || [],
+      price: Number(item.sellprice) || 0,
+      stock: Number(item.stock) || 0,
+      attributes: variantName ? { name: variantName } : null,
+      images: Array.isArray(item.imageList) ? item.imageList : [],
       thumbnail: item.imagepath || null,
     });
   }
 
   // --------------------
-  // save each product
+  // save to database
   // --------------------
   for (const product of productMap.values()) {
     let categoryId = null;
 
+    // -------- categories --------
     if (product.category?.zort_category_id) {
-      // 1. upsert MAIN category
       const mainSlug = buildCategorySlug({
         name: product.category.name,
         id: product.category.zort_category_id,
@@ -97,17 +102,17 @@ export default async function saveZortDB(zortProducts = []) {
 
       const { rows: mainRows } = await pool.query(
         `
-          INSERT INTO categories (zort_category_id, name, slug, parent_id)
-          VALUES ($1, $2, $3, NULL)
-          ON CONFLICT (slug)
-          DO UPDATE SET name = EXCLUDED.name
-          RETURNING id
-          `,
+        INSERT INTO categories (zort_category_id, name, slug, parent_id)
+        VALUES ($1, $2, $3, NULL)
+        ON CONFLICT (slug)
+        DO UPDATE SET name = EXCLUDED.name
+        RETURNING id
+        `,
         [product.category.zort_category_id, product.category.name, mainSlug],
       );
 
       const mainCategoryId = mainRows[0].id;
-      // 2. upsert SUB category (ถ้ามี)
+
       if (product.category.zort_subcategory_id) {
         const subSlug = buildCategorySlug({
           name: product.category.sub_name,
@@ -116,14 +121,14 @@ export default async function saveZortDB(zortProducts = []) {
 
         const { rows: subRows } = await pool.query(
           `
-            INSERT INTO categories (zort_category_id, name, slug, parent_id)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (slug)
-            DO UPDATE SET
-              name = EXCLUDED.name,
-              parent_id = EXCLUDED.parent_id
-            RETURNING id
-            `,
+          INSERT INTO categories (zort_category_id, name, slug, parent_id)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (slug)
+          DO UPDATE SET
+            name = EXCLUDED.name,
+            parent_id = EXCLUDED.parent_id
+          RETURNING id
+          `,
           [
             product.category.zort_subcategory_id,
             product.category.sub_name,
@@ -138,19 +143,17 @@ export default async function saveZortDB(zortProducts = []) {
       }
     }
 
-    // upsert product
+    // -------- product --------
     const { rows } = await pool.query(
       `
-        INSERT INTO products (name, slug, description, full_description, thumbnail_url)
-        VALUES ($1, $2, $3, $4, $5)
-  
-        ON CONFLICT (slug)
-        DO UPDATE SET
-          name = EXCLUDED.name,
-          thumbnail_url = COALESCE(products.thumbnail_url, EXCLUDED.thumbnail_url),
-          updated_at = now()
-        RETURNING id, description
-        `,
+      INSERT INTO products (name, slug, description, full_description, thumbnail_url)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (slug)
+      DO UPDATE SET
+        name = EXCLUDED.name,
+        updated_at = now()
+      RETURNING id
+      `,
       [
         product.name,
         product.slug,
@@ -161,60 +164,34 @@ export default async function saveZortDB(zortProducts = []) {
     );
 
     const productId = rows[0].id;
-    const existing = rows[0];
 
-    // --------------------
-    // link product <-> category
-    // --------------------
+    // -------- product <-> category --------
     if (categoryId) {
       await pool.query(
         `
-          INSERT INTO product_categories (product_id, category_id)
-          VALUES ($1, $2)
-          ON CONFLICT DO NOTHING
-          `,
+        INSERT INTO product_categories (product_id, category_id)
+        VALUES ($1, $2)
+        ON CONFLICT DO NOTHING
+        `,
         [productId, categoryId],
       );
     }
 
-    if (!existing.thumbnail_url && product.variants[0]?.thumbnail) {
-      await pool.query(
-        `
-          UPDATE products
-          SET thumbnail_url = $1
-          WHERE id = $2
-          `,
-        [product.variants[0].thumbnail, productId],
-      );
-    }
-
-    // only set description if empty (CMS-safe)
-    if (!rows[0].description && product.description) {
-      await pool.query(
-        `
-          UPDATE products
-          SET description = $1
-          WHERE id = $2
-          `,
-        [product.description, productId],
-      );
-    }
-
-    // upsert variants
+    // -------- variants --------
     for (const v of product.variants) {
       const { rows: vRows } = await pool.query(
         `
-          INSERT INTO product_variants
-            (product_id, zort_product_id, zort_sku, name, attributes, price, stock)
-          VALUES
-            ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (zort_product_id)
-          DO UPDATE SET
-            price = EXCLUDED.price,
-            stock = EXCLUDED.stock,
-            updated_at = now()
-          RETURNING id
-          `,
+        INSERT INTO product_variants
+          (product_id, zort_product_id, zort_sku, name, attributes, price, stock)
+        VALUES
+          ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (zort_product_id)
+        DO UPDATE SET
+          price = EXCLUDED.price,
+          stock = EXCLUDED.stock,
+          updated_at = now()
+        RETURNING id
+        `,
         [
           productId,
           v.zort_product_id,
@@ -227,75 +204,22 @@ export default async function saveZortDB(zortProducts = []) {
       );
 
       const variantId = vRows[0].id;
-      // insert gallery images (if not exists)
-      if (Array.isArray(v.images) && v.images.length > 0) {
-        for (let i = 0; i < v.images.length; i++) {
-          const imageUrl = v.images[i];
 
-          await pool.query(
-            `
-              INSERT INTO product_images
-                (product_id, variant_id, image_url, image_type, sort_order)
-              VALUES
-                ($1, $2, $3, 'gallery', $4)
-              ON CONFLICT DO NOTHING
-              `,
-            [productId, variantId, imageUrl, i],
-          );
-          const { rows: existingImages } = await pool.query(
-            `
-              SELECT image_url
-              FROM product_images
-              WHERE variant_id = $1
-                AND image_type = 'gallery'
-              `,
-            [variantId],
-          );
-
-          const existingSet = new Set(existingImages.map((i) => i.image_url));
-          const incomingSet = new Set(v.images);
-          for (const url of existingSet) {
-            if (!incomingSet.has(url)) {
-              await pool.query(
-                `
-                  DELETE FROM product_images
-                  WHERE variant_id = $1 AND image_url = $2
-                  `,
-                [variantId, url],
-              );
-            }
-          }
-          let order = 0;
-          for (const url of incomingSet) {
-            if (!existingSet.has(url)) {
-              await pool.query(
-                `
-                  INSERT INTO product_images
-                    (product_id, variant_id, image_url, image_type, sort_order)
-                  VALUES
-                    ($1, $2, $3, 'gallery', $4)
-                  `,
-                [productId, variantId, url, order],
-              );
-            }
-            order++;
-          }
-        }
+      for (let i = 0; i < v.images.length; i++) {
+        await pool.query(
+          `
+          INSERT INTO product_images
+            (product_id, variant_id, image_url, image_type, sort_order)
+          VALUES ($1, $2, $3, 'gallery', $4)
+          ON CONFLICT DO NOTHING
+          `,
+          [productId, variantId, v.images[i], i],
+        );
       }
-    } // ลบ variant ที่ไม่มีใน Zort แล้ว
-    const zortVariantIds = product.variants.map((v) => v.zort_product_id);
-
-    await pool.query(
-      `
-        DELETE FROM product_variants
-        WHERE product_id = $1
-          AND zort_product_id NOT IN (${zortVariantIds
-            .map((_, i) => `$${i + 2}`)
-            .join(",")})
-        `,
-      [productId, ...zortVariantIds],
-    );
+    }
   }
 
-  console.log("✅ saveZortDB completed");
+  console.log(
+    `✅ saveZortDB completed | products=${productMap.size} skipped=${skippedProducts}`,
+  );
 }

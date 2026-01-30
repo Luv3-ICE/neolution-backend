@@ -307,6 +307,6 @@ export default async function runSync() {
     console.log("✅ Sync completed");
   } catch (err) {
     console.error("❌ Sync failed:", err);
-    throw err; // ให้ route จัดการ
+    throw err; 
   }
 }
