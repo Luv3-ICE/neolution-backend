@@ -92,12 +92,7 @@ export default async function runSync() {
     // --------------------
     // save to database
     // --------------------
-    console.log("🟢 Saving to Database");
-
     for (const product of productMap.values()) {
-      // --------------------
-      // upsert category (main + sub)
-      // --------------------
       let categoryId = null;
 
       if (product.category?.zort_category_id) {
