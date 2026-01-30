@@ -21,6 +21,5 @@ export async function fetchZortProducts(limit = 50) {
   }
 
   const json = await res.json();
-  console.log("Zort response:", JSON.stringify(json, null, 2));
   return json.list || [];
 }
