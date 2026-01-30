@@ -1,5 +1,5 @@
 // src/scripts/saveZortDB.js
-import { pool } from "../db/index.js";
+import { pool } from "../../db/index.js";
 
 // --------------------
 // utils
