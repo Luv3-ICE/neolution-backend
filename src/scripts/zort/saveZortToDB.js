@@ -5,19 +5,27 @@ import { pool } from "../../db/index.js";
 // utils
 // --------------------
 function extractBaseName(name) {
+  if (typeof name !== "string") return null;
+
   return name.replace(/\s*\(.*?\)\s*/g, "").trim();
 }
 
 function slugify(text) {
+  if (typeof text !== "string") return "";
+
   return text
     .toLowerCase()
     .replace(/\s+/g, "-")
-    .replace(/[^\w-]+/g, "");
+    .replace(/[^\w-]+/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function buildCategorySlug({ name, id }) {
-  const safeName = name && name.trim() !== "" ? slugify(name) : "category";
-  return `${safeName}-${id}`;
+  const safeName =
+    typeof name === "string" && name.trim() !== "" ? slugify(name) : "category";
+
+  return `${safeName}-${id ?? "unknown"}`;
 }
 
 // --------------------
