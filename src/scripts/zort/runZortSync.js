@@ -1,8 +1,13 @@
-// src/scripts/zort/runZortSync.js
-import { fetchZortSnapshot } from "./fetchZort.js";
+import { fetchZortOrders } from "./fetchZort.js";
 import saveZortDB from "./saveZortToDB.js";
 
 export async function runZortSync() {
-  const snapshotPath = await fetchZortSnapshot();
-  await saveZortDB(snapshotPath);
+  console.log("🔄 Start Zort Sync");
+
+  const orders = await fetchZortOrders();
+  console.log("📦 Orders from Zort:", orders.length);
+
+  await saveZortDB(orders);
+
+  console.log("✅ Zort Sync Finished");
 }
