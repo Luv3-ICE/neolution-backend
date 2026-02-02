@@ -1,4 +1,3 @@
-// src/scripts/zort/saveZortToDB.js
 import { pool } from "../../db/index.js";
 
 // --------------------
@@ -6,14 +5,18 @@ import { pool } from "../../db/index.js";
 // --------------------
 function extractBaseName(name) {
   if (typeof name !== "string") return null;
-
   const cleaned = name.replace(/\s*\(.*?\)\s*/g, "").trim();
   return cleaned !== "" ? cleaned : null;
 }
 
+function extractVariantFromName(name) {
+  if (typeof name !== "string") return null;
+  const match = name.match(/\((.*?)\)/);
+  return match ? match[1].trim() : null;
+}
+
 function slugify(text) {
   if (typeof text !== "string") return "";
-
   return text
     .toLowerCase()
     .replace(/\s+/g, "-")
@@ -25,8 +28,28 @@ function slugify(text) {
 function buildCategorySlug({ name, id }) {
   const safeName =
     typeof name === "string" && name.trim() !== "" ? slugify(name) : "category";
-
   return `${safeName}-${id}`;
+}
+
+function getImages(item) {
+  if (Array.isArray(item.imageList) && item.imageList.length > 0) {
+    return item.imageList;
+  }
+  if (item.imagepath) return [item.imagepath];
+  return [];
+}
+
+function getVariantName(item) {
+  // premium
+  if (item.variant?.length) return item.variant[0].name;
+
+  // legacy (name(variant))
+  const fromName = extractVariantFromName(item.name);
+  if (fromName) return fromName;
+
+  // fallback
+  if (item.sku) return item.sku;
+  return "Default";
 }
 
 // --------------------
@@ -36,53 +59,43 @@ export default async function saveZortDB(zortProducts = []) {
   console.log("🟢 Saving Zort data to Database");
 
   const productMap = new Map();
-  let skippedProducts = 0;
+  let skipped = 0;
 
   // --------------------
-  // group by base product (เหมือน syncZort เก่า)
+  // group products
   // --------------------
   for (const item of zortProducts) {
-    const rawName =
-      item.name || item.product_name || item.ProductName || item.Product?.name;
+    const rawName = item.name;
 
-    const baseName = extractBaseName(rawName);
-    if (!baseName) {
-      skippedProducts++;
-      continue; // ❗ สำคัญมาก
-    }
+    const baseName = extractBaseName(rawName) || `Product-${item.id}`;
 
-    const slug = slugify(baseName);
-    if (!slug) {
-      skippedProducts++;
-      continue;
-    }
+    const slug = slugify(baseName) || `product-${item.id}`;
 
     if (!productMap.has(slug)) {
       productMap.set(slug, {
         name: baseName,
         slug,
         description: item.description || null,
-        full_description: null,
         category: {
           zort_category_id: item.categoryid || null,
           zort_subcategory_id: item.subCategoryId || null,
-          name: item.category || null,
+          name: item.category || "Uncategorized",
           sub_name: item.subCategory || null,
         },
         variants: [],
       });
     }
 
-    const variantName = item.variant?.[0]?.name || item.variant_name || null;
-
     productMap.get(slug).variants.push({
       zort_product_id: item.id,
-      sku: item.sku || null,
-      name: variantName,
+      sku: item.sku || `SKU-${item.id}`,
+      name: getVariantName(item),
       price: Number(item.sellprice) || 0,
       stock: Number(item.stock) || 0,
-      attributes: variantName ? { name: variantName } : null,
-      images: Array.isArray(item.imageList) ? item.imageList : [],
+      attributes: {
+        variant: getVariantName(item),
+      },
+      images: getImages(item),
       thumbnail: item.imagepath || null,
     });
   }
@@ -146,8 +159,10 @@ export default async function saveZortDB(zortProducts = []) {
     // -------- product --------
     const { rows } = await pool.query(
       `
-      INSERT INTO products (name, slug, description, full_description, thumbnail_url)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO products
+        (name, slug, description, thumbnail_url)
+      VALUES
+        ($1, $2, $3, $4)
       ON CONFLICT (slug)
       DO UPDATE SET
         name = EXCLUDED.name,
@@ -158,7 +173,6 @@ export default async function saveZortDB(zortProducts = []) {
         product.name,
         product.slug,
         product.description,
-        product.full_description,
         product.variants[0]?.thumbnail || null,
       ],
     );
@@ -210,7 +224,8 @@ export default async function saveZortDB(zortProducts = []) {
           `
           INSERT INTO product_images
             (product_id, variant_id, image_url, image_type, sort_order)
-          VALUES ($1, $2, $3, 'gallery', $4)
+          VALUES
+            ($1, $2, $3, 'gallery', $4)
           ON CONFLICT DO NOTHING
           `,
           [productId, variantId, v.images[i], i],
@@ -220,6 +235,6 @@ export default async function saveZortDB(zortProducts = []) {
   }
 
   console.log(
-    `✅ saveZortDB completed | products=${productMap.size} skipped=${skippedProducts}`,
+    `✅ saveZortDB completed | products=${productMap.size} skipped=${skipped}`,
   );
 }

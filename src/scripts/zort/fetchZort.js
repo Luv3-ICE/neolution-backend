@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fetchZortProducts } from "../../services/zort.service.js";
 
-export async function fetchZortSnapshot(limit = 200) {
+export async function fetchZortSnapshot(limit = 2) {
   console.log("🔄 Fetching from Zort...");
 
   const products = await fetchZortProducts(limit);
@@ -13,7 +13,7 @@ export async function fetchZortSnapshot(limit = 200) {
 
   const filename = `zort-raw-${Date.now()}.json`;
   const filepath = path.join(dir, filename);
-  
+
   if (process.env.NODE_ENV !== "production") {
     fs.writeFileSync(filepath, JSON.stringify(products, null, 2));
   }
