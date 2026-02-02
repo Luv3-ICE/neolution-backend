@@ -1,8 +1,13 @@
 import fetch from "node-fetch";
+const ZORT_BASE = process.env.ZORT_BASE_URL;
 
-const ZORT_BASE = "https://open-api.zortout.com/v4";
+/**
+ * Fetch products from Zort API
+ * Always return ARRAY
+ */
+export default async function fetchZortProducts(limit = 50) {
+  console.log("🔄 Fetching from Zort...");
 
-export async function fetchZortProducts(limit = 50) {
   const url = `${ZORT_BASE}/Product/GetProducts?limit=${limit}`;
 
   const res = await fetch(url, {
@@ -16,10 +21,29 @@ export async function fetchZortProducts(limit = 50) {
 
   if (!res.ok) {
     const text = await res.text();
-    console.error("Zort raw response:", text);
+    console.error("❌ Zort API raw response:", text);
     throw new Error(`Zort API error: ${res.status}`);
   }
 
   const json = await res.json();
-  return json.list || [];
+
+  // -------- safety guards --------
+  if (!json) {
+    console.error("❌ Zort response is empty");
+    return [];
+  }
+
+  if (Array.isArray(json)) {
+    return json;
+  }
+
+  if (Array.isArray(json.list)) {
+    return json.list;
+  }
+
+  console.error("❌ Zort response has unexpected shape:", {
+    keys: Object.keys(json),
+  });
+
+  return [];
 }
