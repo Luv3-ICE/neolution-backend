@@ -1,4 +1,4 @@
-import fetchZortProducts from "./fetchZort.js";
+import { fetchZortSnapshot } from "./fetchZort.js";
 import saveZortDB from "./saveZortToDB.js";
 
 export default async function runZortSync() {
@@ -6,7 +6,7 @@ export default async function runZortSync() {
 
   try {
     console.log("🔄 Fetching from Zort...");
-    const zortProducts = await fetchZortProducts();
+    const zortProducts = await fetchZortSnapshot();
 
     // ----------------------------
     // STEP 1: raw summary
