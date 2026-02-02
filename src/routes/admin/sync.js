@@ -1,5 +1,5 @@
 import express from "express";
-import { runZortSync } from "../../scripts/zort/runZortSync.js";
+import runZortSync from "../../scripts/zort/runZortSync.js";
 
 const router = express.Router();
 
