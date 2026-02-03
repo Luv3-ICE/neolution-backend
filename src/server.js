@@ -11,7 +11,25 @@ import syncRoute from "./routes/admin/sync.js";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || "*" }));
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://neolutionesport.com.s3-website-ap-southeast-1.amazonaws.com",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // allow tools like Postman / server-to-server
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 app.get("/", (_, res) => res.send("API running"));
@@ -33,4 +51,3 @@ app.get("/health", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
-
