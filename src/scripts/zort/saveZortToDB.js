@@ -92,6 +92,7 @@ export default async function saveZortDB(zortProducts = []) {
       name: getVariantName(item),
       price: Number(item.sellprice) || 0,
       stock: Number(item.stock) || 0,
+      is_active: item.active === true, // 👈 เพิ่ม
       attributes: {
         variant: getVariantName(item),
       },
@@ -155,17 +156,19 @@ export default async function saveZortDB(zortProducts = []) {
         categoryId = mainCategoryId;
       }
     }
+    const productIsActive = product.variants.some((v) => v.is_active === true);
 
     // -------- product --------
     const { rows } = await pool.query(
       `
       INSERT INTO products
-        (name, slug, description, thumbnail_url)
+        (name, slug, description, thumbnail_url, is_active)
       VALUES
-        ($1, $2, $3, $4)
+        ($1, $2, $3, $4, $5)
       ON CONFLICT (slug)
       DO UPDATE SET
         name = EXCLUDED.name,
+        is_active = EXCLUDED.is_active,
         updated_at = now()
       RETURNING id
       `,
@@ -174,6 +177,7 @@ export default async function saveZortDB(zortProducts = []) {
         product.slug,
         product.description,
         product.variants[0]?.thumbnail || null,
+        productIsActive,
       ],
     );
 
@@ -196,13 +200,23 @@ export default async function saveZortDB(zortProducts = []) {
       const { rows: vRows } = await pool.query(
         `
         INSERT INTO product_variants
-          (product_id, zort_product_id, zort_sku, name, attributes, price, stock)
+          (
+            product_id,
+            zort_product_id,
+            zort_sku,
+            name,
+            attributes,
+            price,
+            stock,
+            is_active
+          )
         VALUES
-          ($1, $2, $3, $4, $5, $6, $7)
+          ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (zort_product_id)
         DO UPDATE SET
           price = EXCLUDED.price,
           stock = EXCLUDED.stock,
+          is_active = EXCLUDED.is_active,
           updated_at = now()
         RETURNING id
         `,
@@ -214,6 +228,7 @@ export default async function saveZortDB(zortProducts = []) {
           v.attributes,
           v.price,
           v.stock,
+          v.is_active,
         ],
       );
 
