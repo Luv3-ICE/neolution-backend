@@ -2,6 +2,7 @@ import fetchZortProducts from "../../services/zort.service.js";
 import saveZortDB from "./saveZortToDB.js";
 
 export default async function runZortSync() {
+
   try {
     const zortProducts = await fetchZortProducts();
     // ----------------------------
