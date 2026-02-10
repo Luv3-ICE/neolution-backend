@@ -19,6 +19,11 @@ async function updateZortSyncTime(client) {
     `,
   );
 }
+function formatZortDate(date) {
+  if (!(date instanceof Date)) return null;
+
+  return date.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
+}
 
 export default async function runZortSync() {
   const client = await pool.connect();
@@ -41,7 +46,7 @@ export default async function runZortSync() {
     // STEP 2: fetch
     // ----------------------------
     const zortProducts = await fetchZortProducts({
-      updatedAfter: lastSyncAt ? lastSyncAt.toISOString() : null,
+      updatedAfter: lastSyncAt ? formatZortDate(lastSyncAt) : null,
     });
 
     console.log("📦 Zort raw count:", zortProducts.length);
