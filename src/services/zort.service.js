@@ -5,7 +5,7 @@ const ZORT_BASE = process.env.ZORT_BASE_URL;
  * Fetch products from Zort API
  * Always return ARRAY
  */
-export default async function fetchZortProducts(limit = 50) {
+export default async function fetchZortProducts(limit = 3000) {
   console.log("🔄 Fetching from Zort...");
 
   const url = `${ZORT_BASE}/Product/GetProducts?limit=${limit}`;
