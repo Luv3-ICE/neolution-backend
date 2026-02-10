@@ -2,12 +2,8 @@ import fetchZortProducts from "../../services/zort.service.js";
 import saveZortDB from "./saveZortToDB.js";
 
 export default async function runZortSync() {
-  console.log("🔄 Start Zort Sync");
-
   try {
-    console.log("🔄 Fetching from Zort...");
     const zortProducts = await fetchZortProducts();
-
     // ----------------------------
     // STEP 1: raw summary
     // ----------------------------
@@ -19,11 +15,11 @@ export default async function runZortSync() {
     }
 
     // ----------------------------
-    // STEP 2: sample (limit 5)
+    // STEP 2: sample (limit 1)
     // ----------------------------
     if (zortProducts.length > 0) {
-      console.log("🧩 Zort sample (first 5):");
-      zortProducts.slice(0, 5).forEach((item, i) => {
+      console.log("🧩 Zort sample (first 1):");
+      zortProducts.slice(0, 1).forEach((item, i) => {
         console.log(`#${i + 1}`, {
           id: item?.id,
           name: item?.name,
@@ -47,16 +43,12 @@ export default async function runZortSync() {
         invalidItemCount++;
         continue;
       }
-
       if (!item.name) {
         invalidItemCount++;
         continue;
       }
-
       groupedByName[item.name] = (groupedByName[item.name] || 0) + 1;
     }
-
-    console.log("📊 Grouped by product name (top 10):");
     Object.entries(groupedByName)
       .slice(0, 10)
       .forEach(([name, count]) => {
