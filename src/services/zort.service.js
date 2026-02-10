@@ -5,17 +5,28 @@ const LIMIT = 500;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export default async function fetchZortProducts() {
-  console.log("🔄 Fetching from Zort (pagination mode)...");
+export default async function fetchZortProducts({ updatedAfter = null } = {}) {
+  console.log("🔄 Fetching from Zort (pagination + incremental)...");
 
   let page = 1;
   let allProducts = [];
 
   while (true) {
-    const url =
-      `${ZORT_BASE}/Product/GetProducts` + `?page=${page}&limit=${LIMIT}`;
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(LIMIT),
+    });
 
-    console.log(`➡️ Fetch page ${page}`);
+    if (updatedAfter) {
+      params.append("updatedafter", updatedAfter);
+    }
+
+    const url = `${ZORT_BASE}/Product/GetProducts?${params.toString()}`;
+
+    console.log(
+      `➡️ Fetch page ${page}` +
+        (updatedAfter ? ` | updatedafter=${updatedAfter}` : ""),
+    );
 
     const res = await fetch(url, {
       method: "GET",
@@ -36,7 +47,6 @@ export default async function fetchZortProducts() {
 
     let list = [];
 
-    // -------- normalize response --------
     if (Array.isArray(json)) {
       list = json;
     } else if (Array.isArray(json.list)) {
@@ -50,14 +60,13 @@ export default async function fetchZortProducts() {
 
     allProducts.push(...list);
 
-    // -------- stop condition --------
     if (list.length < LIMIT) {
       console.log("🛑 No more pages");
       break;
     }
 
     page++;
-    await sleep(300); // กัน API rate limit
+    await sleep(300);
   }
 
   console.log(`✅ Total fetched from Zort: ${allProducts.length}`);
