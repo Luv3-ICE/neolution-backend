@@ -69,7 +69,7 @@ router.delete(
     const { id } = req.params;
 
     // กันลบตัวเอง
-    if (Number(id) === req.user.id) {
+    if (Number(id) === req.admin.id) {
       return res.status(400).json({ error: "Cannot delete yourself" });
     }
 
