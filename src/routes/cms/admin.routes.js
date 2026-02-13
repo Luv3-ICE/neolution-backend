@@ -10,7 +10,7 @@ const router = express.Router();
 router.get(
   "/users",
   requireCmsAuth,
-  requirePermission("manage_cms_users"),
+  requirePermission("manage_admin_users"),
   async (req, res) => {
     const { rows } = await pool.query(`
       SELECT au.id, au.username, au.is_active, ar.name AS role_name
@@ -27,7 +27,7 @@ router.get(
 router.get(
   "/roles",
   requireCmsAuth,
-  requirePermission("manage_cms_users"),
+  requirePermission("manage_admin_users"),
   async (req, res) => {
     const { rows } = await pool.query(`
       SELECT id, name FROM admin_roles
@@ -42,7 +42,7 @@ router.get(
 router.post(
   "/users",
   requireCmsAuth,
-  requirePermission("manage_cms_users"),
+  requirePermission("manage_admin_users"),
   async (req, res) => {
     const { username, password, role_id } = req.body;
 
@@ -64,7 +64,7 @@ router.post(
 router.delete(
   "/users/:id",
   requireCmsAuth,
-  requirePermission("manage_cms_users"),
+  requirePermission("manage_admin_users"),
   async (req, res) => {
     const { id } = req.params;
 
