@@ -1,7 +1,6 @@
-// middleware/auth.js
 import { verifyToken } from "../utils/jwt.js";
 
-export function requireAuth(req, res, next) {
+export function requireCmsAuth(req, res, next) {
   const auth = req.headers.authorization;
 
   if (!auth?.startsWith("Bearer ")) {
@@ -12,12 +11,11 @@ export function requireAuth(req, res, next) {
     const token = auth.split(" ")[1];
     const decoded = verifyToken(token);
 
-    // 🔴 ป้องกัน CMS token มาใช้กับ web route
-    if (decoded.type !== "web") {
+    if (decoded.type !== "cms") {
       return res.status(403).json({ error: "Invalid token type" });
     }
 
-    req.user = decoded;
+    req.admin = decoded;
     next();
   } catch {
     res.status(401).json({ error: "Invalid token" });

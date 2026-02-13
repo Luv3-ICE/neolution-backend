@@ -28,7 +28,12 @@ router.post("/register", async (req, res) => {
       );
 
       const user = rows[0];
-      const token = signToken({ id: user.id, email: user.email });
+      const token = signToken({
+        id: user.id,
+        email: user.email,
+        user_name: user.user_name,
+        type: "web",
+      });
 
       res.json({ user, token });
     } catch (err) {
@@ -62,7 +67,11 @@ router.post("/login", async (req, res) => {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 
-  const token = signToken({ id: user.id, email: user.email, user_name: user.user_name });
+  const token = signToken({
+    id: user.id,
+    email: user.email,
+    user_name: user.user_name,
+  });
 
   res.json({
     user: { id: user.id, email: user.email, user_name: user.user_name },

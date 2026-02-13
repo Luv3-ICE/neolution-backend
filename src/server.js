@@ -7,6 +7,7 @@ import authRouter from "./routes/auth.js";
 import userAddressRouter from "./routes/userAddress.js";
 import { pool } from "./db/index.js";
 import syncRoute from "./routes/admin/sync.js";
+import cmsAuthRoutes from "./routes/cmsAuth.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -34,8 +35,9 @@ app.use(express.json());
 
 app.get("/", (_, res) => res.send("API running"));
 app.use("/api/products", apiProducts);
-app.use("/cms/products", cmsProductsRoutes);
 app.use("/api/products", apiProductsRoutes);
+app.use("/cms/products", cmsProductsRoutes);
+app.use("/cms/auth", cmsAuthRoutes);
 app.use("/auth", authRouter);
 app.use("/user/addresses", userAddressRouter);
 app.use("/admin", syncRoute);
