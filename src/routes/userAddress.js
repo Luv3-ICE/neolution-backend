@@ -1,8 +1,35 @@
 import express from "express";
 import { pool } from "../db/index.js";
 import { requireAuth } from "../middleware/auth.js";
+import { db } from "../db/index.js";
 
 const router = express.Router();
+
+export async function getDefaultAddress(req, res) {
+  try {
+    const userId = req.user.id;
+
+    const [rows] = await db.query(
+      `
+      SELECT *
+      FROM addresses
+      WHERE user_id = ?
+      AND is_default = true
+      LIMIT 1
+      `,
+      [userId],
+    );
+
+    if (rows.length === 0) {
+      return res.json(null);
+    }
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error("GET DEFAULT ADDRESS ERROR:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}
 
 /**
  * GET /user/addresses
@@ -136,5 +163,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
 
   res.json({ success: true });
 });
+
+router.get("/default", requireAuth, getDefaultAddress);
 
 export default router;
