@@ -11,7 +11,7 @@ export async function getDefaultAddress(req, res) {
     const [rows] = await pool.query(
       `
       SELECT *
-      FROM addresses
+      FROM user_addresses
       WHERE user_id = ?
       AND is_default = true
       LIMIT 1
