@@ -1,7 +1,6 @@
 import express from "express";
 import { pool } from "../db/index.js";
 import { requireAuth } from "../middleware/auth.js";
-import { db } from "../db/index.js";
 
 const router = express.Router();
 
@@ -9,7 +8,7 @@ export async function getDefaultAddress(req, res) {
   try {
     const userId = req.user.id;
 
-    const [rows] = await db.query(
+    const [rows] = await pool.query(
       `
       SELECT *
       FROM addresses
