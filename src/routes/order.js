@@ -115,7 +115,7 @@ ${address.province} ${address.postcode}
     console.log("ENV CHECK:");
     console.log("ZORT_STORE:", process.env.ZORT_STORE_NAME);
     console.log("ZORT_API_KEY:", process.env.ZORT_API_KEY);
-    console.log("ZORT_SECRET:", process.env.ZORT_SECRET);
+    console.log("ZORT_SECRET:", process.env.ZORT_API_SECRET);
 
     /* ================= SEND TO ZORT ================= */
     const zortRes = await fetch(
@@ -126,7 +126,7 @@ ${address.province} ${address.postcode}
           "Content-Type": "application/json",
           storename: process.env.ZORT_STORE_NAME,
           apikey: process.env.ZORT_API_KEY,
-          apisecret: process.env.ZORT_SECRET,
+          apisecret: process.env.ZORT_API_SECRET,
         },
         body: JSON.stringify(payload),
       },
@@ -169,4 +169,5 @@ ${address.province} ${address.postcode}
 });
 
 export default router;
+
 
