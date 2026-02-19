@@ -9,6 +9,7 @@ import { pool } from "./db/index.js";
 import syncRoute from "./routes/admin/sync.js";
 import cmsAuthRoutes from "./routes/cmsAuth.js";
 import cmsAdminRoutes from "./routes/cms/admin.routes.js";
+import cartRoutes from "./routes/cart.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +39,7 @@ app.get("/", (_, res) => res.send("API running"));
 app.use("/api/products", apiProducts);
 app.use("/api/products", apiProductsRoutes);
 app.use("/cms/products", cmsProductsRoutes);
+app.use("/cart", cartRoutes);
 app.use("/cms/auth", cmsAuthRoutes);
 app.use("/cms/admin", cmsAdminRoutes);
 app.use("/auth", authRouter);
