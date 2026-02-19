@@ -125,3 +125,5 @@ ${address.province} ${address.postcode}
     res.status(500).json({ error: "Checkout failed" });
   }
 });
+
+export default router;
