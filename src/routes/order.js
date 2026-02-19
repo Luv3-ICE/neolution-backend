@@ -113,7 +113,7 @@ ${address.province} ${address.postcode}
     console.log("Sending to ZORT...");
     console.log("Payload:", JSON.stringify(payload, null, 2));
     console.log("ENV CHECK:");
-    console.log("ZORT_STORE:", process.env.ZORT_STORE);
+    console.log("ZORT_STORE:", process.env.ZORT_STORE_NAME);
     console.log("ZORT_API_KEY:", process.env.ZORT_API_KEY);
     console.log("ZORT_SECRET:", process.env.ZORT_SECRET);
 
@@ -124,7 +124,7 @@ ${address.province} ${address.postcode}
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          storename: process.env.ZORT_STORE,
+          storename: process.env.ZORT_STORE_NAME,
           apikey: process.env.ZORT_API_KEY,
           apisecret: process.env.ZORT_SECRET,
         },
@@ -169,3 +169,4 @@ ${address.province} ${address.postcode}
 });
 
 export default router;
+
