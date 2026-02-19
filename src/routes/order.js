@@ -1,5 +1,5 @@
 import express from "express";
-import pool from "../db.js";
+import pool from "../db/index.js";
 import fetch from "node-fetch";
 
 const router = express.Router();
