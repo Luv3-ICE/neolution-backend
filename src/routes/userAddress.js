@@ -4,19 +4,21 @@ import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
-export async function getDefaultAddress(req, res) {
+/* =======================================================
+   GET DEFAULT ADDRESS
+   GET /user/addresses/default
+======================================================= */
+router.get("/default", requireAuth, async (req, res) => {
   try {
-    const userId = req.user.id;
-
-    const [rows] = await pool.query(
+    const { rows } = await pool.query(
       `
       SELECT *
       FROM user_addresses
-      WHERE user_id = ?
+      WHERE user_id = $1
       AND is_default = true
       LIMIT 1
       `,
-      [userId],
+      [req.user.id],
     );
 
     if (rows.length === 0) {
@@ -28,7 +30,7 @@ export async function getDefaultAddress(req, res) {
     console.error("GET DEFAULT ADDRESS ERROR:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
-}
+});
 
 /**
  * GET /user/addresses
@@ -162,7 +164,5 @@ router.delete("/:id", requireAuth, async (req, res) => {
 
   res.json({ success: true });
 });
-
-router.get("/default", requireAuth, getDefaultAddress);
 
 export default router;
