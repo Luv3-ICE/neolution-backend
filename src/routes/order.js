@@ -4,22 +4,35 @@ import fetch from "node-fetch";
 
 const router = express.Router();
 
+async function getDefaultAddress(userId) {
+  const { rows } = await pool.query(
+    `
+    SELECT *
+    FROM user_addresses
+    WHERE user_id = $1
+    AND is_default = true
+    LIMIT 1
+    `,
+    [userId],
+  );
+
+  return rows[0] || null;
+}
+
 /**
  * POST /order/checkout
  */
 router.post("/checkout", async (req, res) => {
-  const userId = req.user.id; // มาจาก auth middleware
-
   try {
-    // ============================
-    // 1. ดึง cart + zort_sku
-    // ============================
-    const { rows: cartItems } = await pool.query(
+    const userId = req.user.id;
+
+    /* ================= CART ================= */
+    const { rows: cart } = await pool.query(
       `
       SELECT
         c.quantity,
-        v.price,
         v.zort_sku,
+        v.price,
         p.name
       FROM cart_items c
       JOIN product_variants v ON v.id = c.variant_id
@@ -29,61 +42,78 @@ router.post("/checkout", async (req, res) => {
       [userId],
     );
 
-    if (cartItems.length === 0) {
-      return res.status(400).json({ error: "Cart is empty" });
+    if (!cart.length) {
+      return res.status(400).json({ error: "Cart empty" });
     }
 
-    // ============================
-    // 2. แปลงเป็น format ของ Zort
-    // ============================
-    const list = cartItems.map((item) => ({
-      sku: item.zort_sku,
-      name: item.name,
-      number: item.quantity,
-      pricepernumber: item.price,
-      discount: "0",
-      totalprice: item.price * item.quantity,
-    }));
+    /* ================= ADDRESS ================= */
+    const address = await getDefaultAddress(userId);
 
-    const amount = list.reduce((sum, item) => sum + item.totalprice, 0);
+    if (!address) {
+      return res.status(400).json({ error: "No default address" });
+    }
 
-    const orderPayload = {
+    const fullAddress = `
+${address.address}
+${address.subdistrict} ${address.district}
+${address.province} ${address.postcode}
+    `.trim();
+
+    /* ================= BUILD ZORT LIST ================= */
+    let amount = 0;
+
+    const list = cart.map((item) => {
+      const total = item.price * item.quantity;
+      amount += total;
+
+      return {
+        sku: item.zort_sku,
+        name: item.name,
+        number: item.quantity,
+        pricepernumber: item.price,
+        discount: "0",
+        totalprice: total,
+      };
+    });
+
+    /* ================= ZORT PAYLOAD ================= */
+    const payload = {
       orderdate: new Date().toISOString().split("T")[0],
       amount,
       paymentamount: 0.0,
       paymentmethod: "Cash",
+
+      saleschannel: "Neo website",
+
+      shippingaddress: fullAddress,
+      shippingname: address.name,
+      shippingphone: address.phone,
+
       list,
     };
 
-    // ============================
-    // 3. ยิงไป Zort
-    // ============================
+    /* ================= SEND TO ZORT ================= */
     const zortRes = await fetch(
       "https://open-api.zortout.com/v4/Order/AddOrder",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          storename: process.env.ZORT_STORE_NAME,
+          storename: process.env.ZORT_STORE,
           apikey: process.env.ZORT_API_KEY,
-          apisecret: process.env.ZORT_API_SECRET,
+          apisecret: process.env.ZORT_SECRET,
         },
-        body: JSON.stringify(orderPayload),
+        body: JSON.stringify(payload),
       },
     );
 
     const zortData = await zortRes.json();
 
     if (!zortRes.ok) {
-      return res.status(400).json({
-        error: "Zort error",
-        detail: zortData,
-      });
+      return res.status(500).json(zortData);
     }
 
-    // ============================
-    // 4. ล้าง cart
-    // ============================
+    /* ================= CLEAR CART ================= */
     await pool.query(`DELETE FROM cart_items WHERE user_id = $1`, [userId]);
 
     res.json({
@@ -91,10 +121,7 @@ router.post("/checkout", async (req, res) => {
       zort: zortData,
     });
   } catch (err) {
-    console.error(err);
+    console.error("CHECKOUT ERROR:", err);
     res.status(500).json({ error: "Checkout failed" });
   }
 });
-
-export default router;
-
