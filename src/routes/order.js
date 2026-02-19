@@ -24,9 +24,19 @@ async function getDefaultAddress(userId) {
  */
 router.post("/checkout", async (req, res) => {
   try {
-    const userId = req.user.id;
+    console.log("========== CHECKOUT START ==========");
+    console.log("User:", req.user);
+
+    const userId = req.user?.id;
+
+    if (!userId) {
+      console.log("❌ No userId in req.user");
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
     /* ================= CART ================= */
+    console.log("Fetching cart...");
+
     const { rows: cart } = await pool.query(
       `
       SELECT
@@ -42,14 +52,22 @@ router.post("/checkout", async (req, res) => {
       [userId],
     );
 
+    console.log("Cart:", cart);
+
     if (!cart.length) {
+      console.log("❌ Cart empty");
       return res.status(400).json({ error: "Cart empty" });
     }
 
     /* ================= ADDRESS ================= */
+    console.log("Fetching default address...");
+
     const address = await getDefaultAddress(userId);
 
+    console.log("Address:", address);
+
     if (!address) {
+      console.log("❌ No default address");
       return res.status(400).json({ error: "No default address" });
     }
 
@@ -59,7 +77,7 @@ ${address.subdistrict} ${address.district}
 ${address.province} ${address.postcode}
     `.trim();
 
-    /* ================= BUILD ZORT LIST ================= */
+    /* ================= BUILD LIST ================= */
     let amount = 0;
 
     const list = cart.map((item) => {
@@ -76,21 +94,28 @@ ${address.province} ${address.postcode}
       };
     });
 
-    /* ================= ZORT PAYLOAD ================= */
+    console.log("Zort list:", list);
+    console.log("Total amount:", amount);
+
+    /* ================= PAYLOAD ================= */
     const payload = {
       orderdate: new Date().toISOString().split("T")[0],
       amount,
       paymentamount: 0.0,
       paymentmethod: "Cash",
-
       saleschannel: "Neo website",
-
       shippingaddress: fullAddress,
       shippingname: address.name,
       shippingphone: address.phone,
-
       list,
     };
+
+    console.log("Sending to ZORT...");
+    console.log("Payload:", JSON.stringify(payload, null, 2));
+    console.log("ENV CHECK:");
+    console.log("ZORT_STORE:", process.env.ZORT_STORE);
+    console.log("ZORT_API_KEY:", process.env.ZORT_API_KEY);
+    console.log("ZORT_SECRET:", process.env.ZORT_SECRET);
 
     /* ================= SEND TO ZORT ================= */
     const zortRes = await fetch(
@@ -107,21 +132,40 @@ ${address.province} ${address.postcode}
       },
     );
 
-    const zortData = await zortRes.json();
+    console.log("Zort status:", zortRes.status);
+
+    const text = await zortRes.text();
+    console.log("Zort raw response:", text);
+
+    let zortData;
+    try {
+      zortData = JSON.parse(text);
+    } catch {
+      console.log("❌ Zort response is not JSON");
+      zortData = text;
+    }
 
     if (!zortRes.ok) {
+      console.log("❌ Zort request failed");
       return res.status(500).json(zortData);
     }
 
+    console.log("✅ Zort success:", zortData);
+
     /* ================= CLEAR CART ================= */
-    await pool.query(`DELETE FROM cart_items WHERE user_id = $1`, [userId]);
+    console.log("Clearing cart...");
+    await pool.query(`DELETE FROM cart_items WHERE user_id = $1`, [
+      userId,
+    ]);
+
+    console.log("========== CHECKOUT END ==========");
 
     res.json({
       success: true,
       zort: zortData,
     });
   } catch (err) {
-    console.error("CHECKOUT ERROR:", err);
+    console.error("🔥 CHECKOUT ERROR:", err);
     res.status(500).json({ error: "Checkout failed" });
   }
 });
