@@ -1,5 +1,5 @@
 import express from "express";
-import pool from "../db/index.js";
+import { pool } from "../db/index.js";
 import fetch from "node-fetch";
 
 const router = express.Router();
@@ -97,3 +97,4 @@ router.post("/checkout", async (req, res) => {
 });
 
 export default router;
+
