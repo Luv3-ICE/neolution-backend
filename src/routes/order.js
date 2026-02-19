@@ -154,9 +154,7 @@ ${address.province} ${address.postcode}
 
     /* ================= CLEAR CART ================= */
     console.log("Clearing cart...");
-    await pool.query(`DELETE FROM cart_items WHERE user_id = $1`, [
-      userId,
-    ]);
+    await pool.query(`DELETE FROM cart_items WHERE user_id = $1`, [userId]);
 
     console.log("========== CHECKOUT END ==========");
 
