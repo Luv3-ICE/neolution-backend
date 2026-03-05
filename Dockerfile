@@ -1,19 +1,12 @@
-FROM node:18
+FROM node:20-alpine
 
-# set working directory
 WORKDIR /app
 
-# copy package files first (เพื่อ cache layer)
 COPY package*.json ./
+RUN npm install --production
 
-# install dependencies
-RUN npm install
-
-# copy source code
 COPY . .
 
-# expose backend port
-EXPOSE 3001
+EXPOSE 3000
 
-# default command (dev)
-CMD ["npm", "run", "dev"]
+CMD ["node", "index.js"]

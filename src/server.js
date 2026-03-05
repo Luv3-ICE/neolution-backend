@@ -14,7 +14,7 @@ import orderRoutes from "./routes/order.js";
 import { requireAuth } from "./middleware/auth.js";
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = [
   "http://localhost:3000",
@@ -58,6 +58,5 @@ app.get("/health", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
-

@@ -169,5 +169,3 @@ ${address.province} ${address.postcode}
 });
 
 export default router;
-
-
