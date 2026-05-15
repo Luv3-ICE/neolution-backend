@@ -70,7 +70,7 @@ router.get("/", async (req, res) => {
       LEFT JOIN LATERAL (
         SELECT image_url FROM product_images
         WHERE product_id = pv.product_id
-          AND image_type = 'cover'
+          AND image_type = 'gallery'
         ORDER BY sort_order ASC
         LIMIT 1
       ) pi ON true
