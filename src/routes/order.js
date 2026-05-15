@@ -43,6 +43,7 @@ router.post("/checkout", async (req, res) => {
         c.quantity,
         v.zort_sku,
         v.price,
+        v.name AS variant_name,
         p.name
       FROM cart_items c
       JOIN product_variants v ON v.id = c.variant_id
@@ -153,6 +154,64 @@ router.post("/checkout", async (req, res) => {
     }
 
     console.log("✅ Zort success:", zortData);
+
+    /* ================= SAVE TO DB ================= */
+    if (zortData?.resCode === "200" && zortData?.detail?.id != null) {
+      try {
+        const zortOrderId = zortData.detail.id.toString();
+
+        const { rows: insertedOrder } = await pool.query(
+          `
+          INSERT INTO orders (
+            user_id, zort_order_id, order_number, status, payment_status,
+            total_amount, shipping_amount, order_date, raw_data
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          RETURNING id
+          `,
+          [
+            userId,
+            zortOrderId,
+            payload.number ?? null,
+            "Pending",
+            "Pending",
+            amount,
+            payload.shippingamount ?? 0,
+            payload.orderdate,
+            zortData,
+          ],
+        );
+
+        const orderRowId = insertedOrder[0].id;
+
+        for (let i = 0; i < cart.length; i++) {
+          const c = cart[i];
+          const productName =
+            (c.name || "") + (c.variant_name ? " " + c.variant_name : "");
+
+          await pool.query(
+            `
+            INSERT INTO order_items
+              (order_id, sku, product_name, quantity, price_per_unit, total_price)
+            VALUES ($1,$2,$3,$4,$5,$6)
+            `,
+            [
+              orderRowId,
+              c.zort_sku,
+              productName,
+              c.quantity,
+              c.price,
+              c.price * c.quantity,
+            ],
+          );
+        }
+
+        console.log("✅ Order saved to DB:", orderRowId);
+      } catch (dbErr) {
+        console.error("🔥 Order DB insert failed:", dbErr);
+      }
+    } else {
+      console.warn("⚠️ Skipping DB insert — Zort resCode/detail.id missing");
+    }
 
     /* ================= CLEAR CART ================= */
     console.log("Clearing cart...");
