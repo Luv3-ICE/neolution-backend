@@ -61,7 +61,7 @@ router.get("/", async (req, res) => {
             'quantity', oi.quantity,
             'price_per_unit', oi.price_per_unit,
             'total_price', oi.total_price,
-            'image_url', pi.image_url
+            'image_url', COALESCE(pi_variant.image_url, pi_product.image_url)
           ) ORDER BY oi.id
         ) FILTER (WHERE oi.id IS NOT NULL) AS items
       FROM orders o
@@ -69,11 +69,19 @@ router.get("/", async (req, res) => {
       LEFT JOIN product_variants pv ON pv.zort_sku = oi.sku
       LEFT JOIN LATERAL (
         SELECT image_url FROM product_images
-        WHERE product_id = pv.product_id
+        WHERE variant_id = pv.id
           AND image_type = 'gallery'
         ORDER BY sort_order ASC
         LIMIT 1
-      ) pi ON true
+      ) pi_variant ON true
+      LEFT JOIN LATERAL (
+        SELECT image_url FROM product_images
+        WHERE product_id = pv.product_id
+          AND variant_id IS NULL
+          AND image_type = 'gallery'
+        ORDER BY sort_order ASC
+        LIMIT 1
+      ) pi_product ON true
       WHERE o.user_id = $1
       GROUP BY o.id
       ORDER BY o.order_date DESC, o.created_at DESC
