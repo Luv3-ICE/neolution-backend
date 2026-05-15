@@ -177,7 +177,7 @@ router.post("/checkout", async (req, res) => {
             amount,
             payload.shippingamount ?? 0,
             payload.orderdate,
-            zortData,
+            { ...payload, zortResponse: zortData },
           ],
         );
 
