@@ -25,28 +25,25 @@ function formatZortDateOnly(date) {
   return date.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-export default async function runZortSync() {
+export default async function runZortSync({ force = false } = {}) {
   const client = await pool.connect();
 
   try {
     console.log("🔄 Start Zort Sync");
 
-    // ----------------------------
-    // STEP 1: check last sync
-    // ----------------------------
     const lastSyncAt = await getLastZortSync();
 
-    if (lastSyncAt) {
-      console.log("⏱ Incremental sync since:", lastSyncAt.toISOString());
+    // force = true → full sync ไม่สนใจ lastSync
+    const syncFrom = force ? null : lastSyncAt;
+
+    if (syncFrom) {
+      console.log("⏱ Incremental sync since:", syncFrom.toISOString());
     } else {
-      console.log("♻️ First time sync → full fetch");
+      console.log("♻️ Full sync");
     }
 
-    // ----------------------------
-    // STEP 2: fetch
-    // ----------------------------
     const zortProducts = await fetchZortProducts({
-      updatedAfter: lastSyncAt ? formatZortDateOnly(lastSyncAt) : null,
+      updatedAfter: syncFrom ? formatZortDateOnly(syncFrom) : null,
     });
 
     console.log("📦 Zort raw count:", zortProducts.length);
@@ -56,14 +53,7 @@ export default async function runZortSync() {
       return;
     }
 
-    // ----------------------------
-    // STEP 3: save
-    // ----------------------------
     await saveZortDB(zortProducts);
-
-    // ----------------------------
-    // STEP 4: commit sync time
-    // ----------------------------
     await updateZortSyncTime(client);
 
     console.log("✅ Zort Sync Finished");

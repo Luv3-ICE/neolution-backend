@@ -54,24 +54,41 @@ router.get("/", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `
-      SELECT
+      SELECT DISTINCT ON (v.id)
         c.variant_id,
         c.quantity,
+
         v.price,
         v.stock,
         v.zort_sku,
+        v.name AS variant_name,
+
         p.name,
-        p.thumbnail_url
+
+        img.image_url
+
       FROM cart_items c
-      JOIN product_variants v ON v.id = c.variant_id
-      JOIN products p ON p.id = v.product_id
+
+      JOIN product_variants v
+        ON v.id = c.variant_id
+
+      JOIN products p
+        ON p.id = v.product_id
+
+      LEFT JOIN product_images img
+        ON img.variant_id = v.id
+        OR (img.product_id = p.id AND img.variant_id IS NULL)
+
       WHERE c.user_id = $1
+
+      ORDER BY v.id, img.sort_order ASC
       `,
       [req.user.id],
     );
 
     const list = rows.map((item) => ({
       ...item,
+      thumbnail_url: item.image_url || item.thumbnail_url,
       total: item.price * item.quantity,
     }));
 
@@ -85,6 +102,45 @@ router.get("/", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("GET CART ERROR:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.patch("/bulk", requireAuth, async (req, res) => {
+  const { items } = req.body;
+
+  if (!items || !Array.isArray(items)) {
+    return res.status(400).json({ error: "Invalid items" });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    for (const item of items) {
+      if (item.quantity <= 0) continue;
+
+      await client.query(
+        `
+        UPDATE cart_items
+        SET quantity = $1,
+            updated_at = now()
+        WHERE user_id = $2
+        AND variant_id = $3
+        `,
+        [item.quantity, req.user.id, item.variant_id],
+      );
+    }
+
+    await client.query("COMMIT");
+
+    res.json({ success: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(err);
+    res.status(500).json({ error: "Failed to update cart" });
+  } finally {
+    client.release();
   }
 });
 

@@ -72,9 +72,9 @@ router.post("/checkout", async (req, res) => {
     }
 
     const fullAddress = `
-${address.address}
-${address.subdistrict} ${address.district}
-${address.province} ${address.postcode}
+      ${address.address}
+      ${address.subdistrict} ${address.district}
+      ${address.province} ${address.postcode}
     `.trim();
 
     /* ================= BUILD LIST ================= */
@@ -104,6 +104,11 @@ ${address.province} ${address.postcode}
       paymentamount: 0.0,
       paymentmethod: "Cash",
       saleschannel: "Neo website",
+
+      customername: req.user.name,
+      customeremail: req.user.email,
+      customerphone: req.user.phone || "",
+
       shippingaddress: fullAddress,
       shippingname: address.name,
       shippingphone: address.phone,
@@ -113,9 +118,6 @@ ${address.province} ${address.postcode}
     console.log("Sending to ZORT...");
     console.log("Payload:", JSON.stringify(payload, null, 2));
     console.log("ENV CHECK:");
-    console.log("ZORT_STORE:", process.env.ZORT_STORE_NAME);
-    console.log("ZORT_API_KEY:", process.env.ZORT_API_KEY);
-    console.log("ZORT_SECRET:", process.env.ZORT_API_SECRET);
 
     /* ================= SEND TO ZORT ================= */
     const zortRes = await fetch(
@@ -124,9 +126,9 @@ ${address.province} ${address.postcode}
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          storename: process.env.ZORT_STORE_NAME,
-          apikey: process.env.ZORT_API_KEY,
-          apisecret: process.env.ZORT_API_SECRET,
+          storename: process.env.ZORT_STORE_NAME_DEV,
+          apikey: process.env.ZORT_API_KEY_DEV,
+          apisecret: process.env.ZORT_API_SECRET_DEV,
         },
         body: JSON.stringify(payload),
       },

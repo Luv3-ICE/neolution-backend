@@ -39,17 +39,28 @@ function getImages(item) {
   return [];
 }
 
-function getVariantName(item) {
-  // premium
-  if (item.variant?.length) return item.variant[0].name;
+function extractAttributes(item) {
+  // กรณี API ส่ง variant มา (ดีที่สุด)
+  if (item.variant?.length) {
+    return Object.fromEntries(
+      item.variant.map(v => [
+        v.variantname?.trim(),
+        v.name?.trim()
+      ])
+    );
+  }
 
-  // legacy (name(variant))
-  const fromName = extractVariantFromName(item.name);
-  if (fromName) return fromName;
+  // fallback → parse จาก SKU แบบ generic
+  if (item.sku) {
+    const parts = item.sku.split("-").slice(1); // ตัด prefix SKU
 
-  // fallback
-  if (item.sku) return item.sku;
-  return "Default";
+    return parts.reduce((acc, val, index) => {
+      acc[`option${index + 1}`] = val;
+      return acc;
+    }, {});
+  }
+
+  return {};
 }
 
 // --------------------
@@ -64,7 +75,14 @@ export default async function saveZortDB(zortProducts = []) {
   // --------------------
   // group products
   // --------------------
-  for (const item of zortProducts) {
+ const TARGET_CATEGORY_ID = 282033;
+
+ for (const item of zortProducts) {
+   // 🔥 filter category ตรงนี้
+  //  if (item.categoryid !== TARGET_CATEGORY_ID) {
+  //    skipped++;
+  //    continue;
+  //  }
     const rawName = item.name;
 
     const baseName = extractBaseName(rawName) || `Product-${item.id}`;
@@ -86,19 +104,19 @@ export default async function saveZortDB(zortProducts = []) {
       });
     }
 
+    const attributes = extractAttributes(item);
+
     productMap.get(slug).variants.push({
-      zort_product_id: item.id,
-      sku: item.sku || `SKU-${item.id}`,
-      name: getVariantName(item),
-      price: Number(item.sellprice) || 0,
-      stock: Number(item.stock) || 0,
-      is_active: item.active === true, // 👈 เพิ่ม
-      attributes: {
-        variant: getVariantName(item),
-      },
-      images: getImages(item),
-      thumbnail: item.imagepath || null,
-    });
+     zort_product_id: item.id,
+     sku: item.sku || `SKU-${item.id}`,
+     name: Object.values(attributes).join(" / ") || "Default",
+     price: Number(item.sellprice) || 0,
+     stock: Number(item.stock) || 0,
+     is_active: item.active === true,
+     attributes,
+     images: getImages(item),
+     thumbnail: item.imagepath || null,
+});
   }
 
   // --------------------
@@ -216,6 +234,7 @@ export default async function saveZortDB(zortProducts = []) {
         DO UPDATE SET
           price = EXCLUDED.price,
           stock = EXCLUDED.stock,
+          attributes = EXCLUDED.attributes,
           is_active = EXCLUDED.is_active,
           updated_at = now()
         RETURNING id
@@ -234,22 +253,41 @@ export default async function saveZortDB(zortProducts = []) {
 
       const variantId = vRows[0].id;
 
+      // -------- images --------
+      // ดึง images ที่มีอยู่แล้วของ variant นี้
+      const { rows: existingImages } = await pool.query(
+        `SELECT image_url FROM product_images 
+        WHERE variant_id = $1 AND image_type = 'gallery'`,
+        [variantId]
+      );
+
+      const existingUrls = new Set(existingImages.map(r => r.image_url));
+      const newUrls = new Set(v.images);
+
+      // เพิ่มรูปใหม่ที่ยังไม่มี
       for (let i = 0; i < v.images.length; i++) {
-        await pool.query(
-          `
-          INSERT INTO product_images
-            (product_id, variant_id, image_url, image_type, sort_order)
-          VALUES
-            ($1, $2, $3, 'gallery', $4)
-          ON CONFLICT DO NOTHING
-          `,
-          [productId, variantId, v.images[i], i],
-        );
+        if (!existingUrls.has(v.images[i])) {
+          await pool.query(
+            `INSERT INTO product_images
+              (product_id, variant_id, image_url, image_type, sort_order)
+            VALUES ($1, $2, $3, 'gallery', $4)`,
+            [productId, variantId, v.images[i], i]
+          );
+        }
       }
-    }
-  }
+
+      // ลบรูปเก่าที่ไม่มีใน Zort แล้ว
+      for (const oldUrl of existingUrls) {
+        if (!newUrls.has(oldUrl)) {
+          await pool.query(
+            `DELETE FROM product_images 
+            WHERE variant_id = $1 AND image_url = $2`,
+            [variantId, oldUrl]
+          );
+        }
+      }
 
   console.log(
     `✅ saveZortDB completed | products=${productMap.size} skipped=${skipped}`,
   );
-}
+}}}

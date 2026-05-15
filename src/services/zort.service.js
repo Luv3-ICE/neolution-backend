@@ -31,9 +31,9 @@ export default async function fetchZortProducts({ updatedAfter = null } = {}) {
     const res = await fetch(url, {
       method: "GET",
       headers: {
-        storename: process.env.ZORT_STORE_NAME,
-        apikey: process.env.ZORT_API_KEY,
-        apisecret: process.env.ZORT_API_SECRET,
+        storename: process.env.ZORT_STORE_NAME_DEV,
+        apikey: process.env.ZORT_API_KEY_DEV,
+        apisecret: process.env.ZORT_API_SECRET_DEV,
       },
     });
 
